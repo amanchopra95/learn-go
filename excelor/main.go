@@ -40,7 +40,7 @@ type UserContext struct {
 type BookingRequestModel struct {
 	Id                int64
 	AccountName       string
-	StatusId          int64
+	Status            string
 	BillToInfoId      int64
 	ServiceTypeIds    any
 	PassengerName     string
@@ -101,13 +101,13 @@ func WriteCSVFile(payload []BookingRequestModel) {
 	defer w.Flush()
 
 	records := make([][]string, len(payload)+1)
-	records[0] = []string{"Id", "AccountName", "StatusId", "BillToInfoId", "ServiceTypeIds", "PassengerName", "PassengerId", "PassengerDOB", "PassengerGender", "Payer", "TripPurpose", "Notes", "VehicleCategoryId", "UserName"}
+	records[0] = []string{"Id", "AccountName", "Status", "BillToInfoId", "ServiceTypeIds", "PassengerName", "PassengerId", "PassengerDOB", "PassengerGender", "Payer", "TripPurpose", "Notes", "VehicleCategoryId", "UserName"}
 
 	for i, record := range payload {
 		records[i+1] = []string{
 			strconv.Itoa(int(record.Id)),
 			record.AccountName,
-			strconv.Itoa(int(record.StatusId)),
+			record.Status,
 			strconv.Itoa(int(record.BillToInfoId)),
 			fmt.Sprint(record.ServiceTypeIds),
 			record.PassengerName,
@@ -139,7 +139,7 @@ func QuerySQLData(payload []AuditLogView) []BookingRequestModel {
 	}
 
 	stmt, err := db.Prepare(`
-		SELECT br."Id", br."AccountName", br."BillToInfoId", br."PassengerId", br."PassengerName", br."ServiceTypeIds", br."StatusId",
+		SELECT br."Id", br."AccountName", br."BillToInfoId", br."PassengerId", br."PassengerName", br."ServiceTypeIds", lp."Name" as "Status",
 		pa."DateOfBirth", pa."Gender", no."Notes", tp."Name" as "TripPurpose", bi."Name" as "Payer", br."VehicleCategoryId", st."Name" as "UserName"
 		FROM mekong_trip."BookingRequest" br
 		join mekong_trip."Passenger" pa on pa."Id" = br."PassengerId"
@@ -147,6 +147,7 @@ func QuerySQLData(payload []AuditLogView) []BookingRequestModel {
 		left join mekong_trip."TripPurpose" tp on tp."Id" = br."TripPurposeId"
 		join mekong_trip."BillingInfo" bi on bi."Id" = br."BillToInfoId"
 		left join mekong_fna."Staff" st on st."SystemUserId" = br."updatedById"
+		left join mekong_trip."Lookup" lp on lp."Id" = br."StatusId"
 		WHERE br."Id" = ANY($1);
 	`)
 
@@ -165,7 +166,7 @@ func QuerySQLData(payload []AuditLogView) []BookingRequestModel {
 	bookings := make([]BookingRequestModel, 0)
 	for rows.Next() {
 		var b BookingRequestModel
-		err := rows.Scan(&b.Id, &b.AccountName, &b.BillToInfoId, &b.PassengerId, &b.PassengerName, &b.ServiceTypeIds, &b.StatusId, &b.PassengerDOB, &b.PassengerGender, &b.Notes, &b.TripPurpose, &b.Payer, &b.VehicleCategoryId, &b.UserName)
+		err := rows.Scan(&b.Id, &b.AccountName, &b.BillToInfoId, &b.PassengerId, &b.PassengerName, &b.ServiceTypeIds, &b.Status, &b.PassengerDOB, &b.PassengerGender, &b.Notes, &b.TripPurpose, &b.Payer, &b.VehicleCategoryId, &b.UserName)
 
 		if err != nil {
 			log.Println("Error in scanning the rows", err)
